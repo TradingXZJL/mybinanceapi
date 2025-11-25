@@ -941,7 +941,7 @@ func getWsApiWsApi(apiType ApiType) string {
 	switch apiType {
 	case SPOT:
 		switch NowNetType {
-		case MAIN_NET:
+		case MAIN_NET, MAIN_NET_MM:
 			return BINANCE_API_SPOT_WS_API
 		case TEST_NET:
 			return TEST_BINANCE_API_SPOT_WS_API
