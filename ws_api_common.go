@@ -34,12 +34,6 @@ func (id *WsApiId) UnmarshalJSON(data []byte) error {
 		*id = WsApiId(strconv.FormatInt(num, 10))
 		return nil
 	}
-	// 尝试解析为浮点数（处理大数字）
-	var numFloat float64
-	if err := json.Unmarshal(data, &numFloat); err == nil {
-		*id = WsApiId(strconv.FormatInt(int64(numFloat), 10))
-		return nil
-	}
 	return fmt.Errorf("cannot unmarshal %s into WsApiId", string(data))
 }
 
