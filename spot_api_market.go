@@ -64,6 +64,7 @@ func (client *SpotRestClient) NewSpotTrades() *SpotTradesApi {
 }
 func (api *SpotTradesApi) Do() (*SpotTradesRes, error) {
 	url := binanceHandlerRequestApi(SPOT, api.req, SpotApiMap[SpotTrades])
+	log.Debug(url)
 	return binanceCallApiWithSecret[SpotTradesRes](api.client.c, url, GET)
 }
 

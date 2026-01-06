@@ -90,6 +90,7 @@ type WsStreamClient struct {
 	klineSubMap     MySyncMap[string, *Subscription[WsKline]]
 	depthSubMap     MySyncMap[string, *Subscription[WsDepth]]
 	aggTradeSubMap  MySyncMap[string, *Subscription[WsAggTrade]]
+	tradeSubMap     MySyncMap[string, *Subscription[WsTrade]]
 	tickerSubMap    MySyncMap[string, *Subscription[WsTicker]]    //单个ticker订阅
 	tickerAllSubMap MySyncMap[string, *Subscription[[]*WsTicker]] //全市场ticker订阅
 
@@ -238,6 +239,7 @@ func (ws *WsStreamClient) initStructs() {
 	ws.klineSubMap = NewMySyncMap[string, *Subscription[WsKline]]()
 	ws.depthSubMap = NewMySyncMap[string, *Subscription[WsDepth]]()
 	ws.aggTradeSubMap = NewMySyncMap[string, *Subscription[WsAggTrade]]()
+	ws.tradeSubMap = NewMySyncMap[string, *Subscription[WsTrade]]()
 	ws.tickerSubMap = NewMySyncMap[string, *Subscription[WsTicker]]()
 	ws.tickerAllSubMap = NewMySyncMap[string, *Subscription[[]*WsTicker]]()
 
@@ -311,6 +313,13 @@ func (ws *WsStreamClient) sendUnSubscribeSuccessToCloseChan(params []string) {
 			isCloseMap[sub.ID] = true
 		} else if sub, ok := ws.aggTradeSubMap.Load(param); ok {
 			ws.aggTradeSubMap.Delete(param)
+			if _, ok2 := isCloseMap[sub.ID]; ok2 {
+				continue
+			}
+			sub.closeChan <- struct{}{}
+			isCloseMap[sub.ID] = true
+		} else if sub, ok := ws.tradeSubMap.Load(param); ok {
+			ws.tradeSubMap.Delete(param)
 			if _, ok2 := isCloseMap[sub.ID]; ok2 {
 				continue
 			}
@@ -434,7 +443,7 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 						log.Error(err)
 						continue
 					}
-					if ch, ok := ws.waitWsApiResultMap.Load(wsApiResult.Id); ok {
+					if ch, ok := ws.waitWsApiResultMap.Load(wsApiResult.Id.String()); ok {
 						err = wsApiResult.Error.handlerError()
 						if err != nil {
 							ch.ErrChan() <- err
@@ -442,7 +451,7 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 						} else {
 							ch.ResultChan() <- data
 						}
-						ws.waitWsApiResultMap.Delete(wsApiResult.Id)
+						ws.waitWsApiResultMap.Delete(wsApiResult.Id.String())
 					}
 					continue
 				}
@@ -522,6 +531,27 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 							continue
 						}
 						sub.resultChan <- *a
+					}
+					continue
+				}
+
+				// 逐笔交易流订阅
+				if strings.Contains(string(data), "@trade") {
+					var t *WsTrade
+					var err error
+					//交易流处理
+					// if !ws.isGzip {
+					t, err = HandleWsCombinedTrade(ws.apiType, data)
+					// } else {
+					// 	t, err = HandleWsCombinedTradeGzip(ws.apiType, data)
+					// }
+					param := getTradeParam(t.Symbol)
+					if sub, ok := ws.tradeSubMap.Load(param); ok {
+						if err != nil {
+							sub.errChan <- err
+							continue
+						}
+						sub.resultChan <- *t
 					}
 					continue
 				}

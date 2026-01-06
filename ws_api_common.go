@@ -17,6 +17,36 @@ type WsApiResultChan interface {
 	CloseChan() chan struct{}
 }
 
+// WsApiId 自定义类型，可以同时处理 JSON 中的数字和字符串类型的 id
+type WsApiId string
+
+// UnmarshalJSON 自定义 JSON 反序列化，支持数字和字符串两种类型
+func (id *WsApiId) UnmarshalJSON(data []byte) error {
+	// 尝试解析为字符串
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*id = WsApiId(str)
+		return nil
+	}
+	// 尝试解析为数字
+	var num int64
+	if err := json.Unmarshal(data, &num); err == nil {
+		*id = WsApiId(strconv.FormatInt(num, 10))
+		return nil
+	}
+	// 尝试解析为浮点数（处理大数字）
+	var numFloat float64
+	if err := json.Unmarshal(data, &numFloat); err == nil {
+		*id = WsApiId(strconv.FormatInt(int64(numFloat), 10))
+		return nil
+	}
+	return fmt.Errorf("cannot unmarshal %s into WsApiId", string(data))
+}
+
+func (id WsApiId) String() string {
+	return string(id)
+}
+
 type WsApiReq[T any] struct {
 	Id     string `json:"id"`     //YES	任意的 ID 用于匹配对请求的响应
 	Method string `json:"method"` //YES	请求函数名称
@@ -24,7 +54,7 @@ type WsApiReq[T any] struct {
 }
 
 type WsApiResult[T any] struct {
-	Id         string          `json:"id"`     // YES	与原来请求的ID一样
+	Id         WsApiId         `json:"id"`     // YES	与原来请求的ID一样（支持数字和字符串）
 	Status     int             `json:"status"` // YES	响应状态。请看 状态代码
 	Result     T               `json:"result"` // YES	响应内容。请求成功则显示
 	Error      BinanceErrorRes `json:"error"`  // 请求失败则显示
