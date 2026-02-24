@@ -231,19 +231,19 @@ const (
 	SPOT_ISOLATED_MARGIN_WS_TYPE                   //逐倉
 )
 
-func (ws *SpotWsStreamClient) ConvertToAccountWs(apiKey string, apiSecret string, spotWsType SpotWsType, isolatedSymbol string) (*SpotWsStreamClient, error) {
+func (ws *SpotWsStreamClient) ConvertToAccountWs(apiKey string, apiSecret string, spotWsType SpotWsType, isolatedSymbol ...string) (*SpotWsStreamClient, error) {
 	ws.wsStreamPath = WS_SPOT_API_PATH
 	ws.apiKey = apiKey
 	ws.apiSecret = apiSecret
 	ws.spotWsType = spotWsType
 
 	if spotWsType == SPOT_ISOLATED_MARGIN_WS_TYPE {
-		if len(isolatedSymbol) == 0 || strings.TrimSpace(isolatedSymbol) == "" {
-			return nil, fmt.Errorf("逐仓杠杆账户必须指定至少一个 isolatedSymbol")
+		if len(isolatedSymbol) != 1 {
+			return nil, fmt.Errorf("逐仓杠杆账户只能指定一个 isolatedSymbol")
 		}
 	}
 
-	ws.isolatedSymbol = isolatedSymbol
+	ws.isolatedSymbol = isolatedSymbol[0]
 
 	b := MyBinance{}
 	ws.client = b.NewSpotRestClient(apiKey, apiSecret)
