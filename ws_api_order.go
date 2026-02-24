@@ -17,6 +17,7 @@ func signWsApi[T any](apiKey, apiSecret string, paramsReq *T) string {
 	return sign
 }
 
+
 func (ws *SpotWsStreamClient) CreateOrder(api *SpotOrderPostApi) (*WsApiResult[SpotOrderPostRes], error) {
 	api.Timestamp(time.Now().UnixMilli())
 

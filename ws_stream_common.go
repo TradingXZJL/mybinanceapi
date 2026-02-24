@@ -7,6 +7,8 @@ type SpotWsStreamClient struct {
 	spotWsType     SpotWsType
 	isolatedSymbol string
 	client         *SpotRestClient
+
+	isUserDataSubscribe bool
 }
 type FutureWsStreamClient struct {
 	WsStreamClient

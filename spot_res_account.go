@@ -222,3 +222,7 @@ type SpotBrokerRebateFuturesRecentRecordResRow struct {
 }
 
 type SpotApiReferralIfNewUserRes map[string]interface{}
+
+type SpotWsApiUserDataStreamResult struct {
+	SubscriptionId int64 `json:"subscriptionId"`
+}

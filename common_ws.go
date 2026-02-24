@@ -117,6 +117,8 @@ type WsStreamClient struct {
 	listenKeyRefreshStopChan *chan struct{}
 
 	AutoReConnectTimes int //自动重连次数
+
+	afterOpenCallBack func() error
 }
 
 // 订阅请求结构体
@@ -279,6 +281,13 @@ func (ws *WsStreamClient) OpenConn() error {
 		ws.conn = conn
 		log.Info("Auto ReOpenConn success to ", apiUrl)
 	}
+
+	if ws.afterOpenCallBack != nil {
+		err := ws.afterOpenCallBack()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -433,6 +442,7 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 					return
 				}
 
+				log.Debugf("receive data: %s", string(data))
 				//wsApi返回结果
 				if strings.Contains(string(data), "id") &&
 					strings.Contains(string(data), "rateLimits") &&
@@ -613,14 +623,17 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 					//log.Info(string(data))
 					switch ws.apiType {
 					case SPOT:
-						res, err := HandleWsPayloadResult[WsSpotPayloadOutboundAccountPosition](data)
+						res, err := HandleWsPayloadResult[struct {
+							SubscriptionId int64                                `json:"subscriptionId"`
+							Event          WsSpotPayloadOutboundAccountPosition `json:"event"`
+						}](data)
 						if err != nil {
 							log.Error(err)
 							continue
 						}
 						ws.wsSpotPayloadMap.Range(func(_ int64, payload *WsSpotPayload) bool {
 							if payload.OutboundAccountPositionPayload != nil {
-								payload.OutboundAccountPositionPayload.resultChan <- *res
+								payload.OutboundAccountPositionPayload.resultChan <- res.Event
 							}
 							return true
 						})
@@ -643,16 +656,21 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 
 				//现货余额更新推送
 				if strings.Contains(string(data), "balanceUpdate") {
+					// log.Debugf("receive balanceUpdate data: %s", string(data))
 					switch ws.apiType {
 					case SPOT:
-						res, err := HandleWsPayloadResult[WsSpotPayloadBalanceUpdate](data)
+						res, err := HandleWsPayloadResult[struct {
+							SubscriptionId int64                      `json:"subscriptionId"`
+							Event          WsSpotPayloadBalanceUpdate `json:"event"`
+						}](data)
 						if err != nil {
 							log.Error(err)
 							continue
 						}
+						// log.Debugf("balanceUpdate result: %+v", res)
 						ws.wsSpotPayloadMap.Range(func(_ int64, payload *WsSpotPayload) bool {
 							if payload.BalanceUpdatePayload != nil {
-								payload.BalanceUpdatePayload.resultChan <- *res
+								payload.BalanceUpdatePayload.resultChan <- res.Event
 							}
 							return true
 						})
@@ -678,14 +696,17 @@ func (ws *WsStreamClient) handleResult(resultChan chan []byte, errChan chan erro
 					log.Debug(string(data))
 					switch ws.apiType {
 					case SPOT:
-						res, err := HandleWsPayloadResult[WsSpotPayloadExecutionReport](data)
+						res, err := HandleWsPayloadResult[struct {
+							SubscriptionId int64                        `json:"subscriptionId"`
+							Event          WsSpotPayloadExecutionReport `json:"event"`
+						}](data)
 						if err != nil {
 							log.Error(err)
 							continue
 						}
 						ws.wsSpotPayloadMap.Range(func(_ int64, payload *WsSpotPayload) bool {
 							if payload.ExecutionReportPayload != nil {
-								payload.ExecutionReportPayload.resultChan <- *res
+								payload.ExecutionReportPayload.resultChan <- res.Event
 							}
 							return true
 						})

@@ -2,9 +2,10 @@ package mybinanceapi
 
 import (
 	"fmt"
-	"github.com/bwmarrin/snowflake"
 	"strings"
 	"time"
+
+	"github.com/bwmarrin/snowflake"
 )
 
 type Payload[T any] struct {
@@ -225,53 +226,61 @@ func (ws *PMMarginStreamClient) CreatePayload() (*WsPMMarginPayload, error) {
 type SpotWsType int
 
 const (
-	SPOT_WS_TYPE SpotWsType = iota //现货
-	SPOT_MARGIN_WS_TYPE           //全倉
-	SPOT_ISOLATED_MARGIN_WS_TYPE  //逐倉
+	SPOT_WS_TYPE                 SpotWsType = iota //现货
+	SPOT_MARGIN_WS_TYPE                            //全倉
+	SPOT_ISOLATED_MARGIN_WS_TYPE                   //逐倉
 )
 
-
 func (ws *SpotWsStreamClient) ConvertToAccountWs(apiKey string, apiSecret string, spotWsType SpotWsType, isolatedSymbol ...string) (*SpotWsStreamClient, error) {
-	ws.wsStreamPath = WS_ACCOUNT_PATH
+	ws.wsStreamPath = WS_SPOT_API_PATH
 	ws.apiKey = apiKey
 	ws.apiSecret = apiSecret
 	ws.spotWsType = spotWsType
-	ws.isListenWs = true
-	if len(isolatedSymbol) > 0 {
-		ws.isolatedSymbol = isolatedSymbol[0]
-	}
+	// ws.isListenWs = true
+	// if len(isolatedSymbol) > 0 {
+	// 	ws.isolatedSymbol = isolatedSymbol[0]
+	// }
 	b := MyBinance{}
 	ws.client = b.NewSpotRestClient(apiKey, apiSecret)
 
-	err := ws.listenKeyPost()
-	if err != nil {
-		return nil, err
+	ws.afterOpenCallBack = func() error {
+		res, err := ws.SubscribeUserDataStream()
+		if err != nil {
+			return err
+		}
+		log.Debugf("%+v", res)
+		return nil
 	}
-	//创建一个协程定时刷新listenKey，如果已存在旧的刷新协程则不再创建
-	if ws.listenKeyRefreshStopChan == nil {
-		stopChan := make(chan struct{})
-		ws.listenKeyRefreshStopChan = &stopChan
-		go func() {
-			for {
-				select {
-				case <-time.After(ListenKeyRefreshInterval):
-					err := ws.listenKeyPut()
-					for err != nil {
-						log.Error(err)
-						time.Sleep(5 * time.Second)
-						if strings.Contains(err.Error(), "-1125") {
-							//如果是-1125错误，则Post更新
-							err = ws.listenKeyPost()
-						} else {
-							err = ws.listenKeyPut()
-						}
-					}
-				case <-*ws.listenKeyRefreshStopChan:
-					return
-				}
-			}
-		}()
-	}
+
+	// err := ws.listenKeyPost()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// //创建一个协程定时刷新listenKey，如果已存在旧的刷新协程则不再创建
+	// if ws.listenKeyRefreshStopChan == nil {
+	// 	stopChan := make(chan struct{})
+	// 	ws.listenKeyRefreshStopChan = &stopChan
+	// 	go func() {
+	// 		for {
+	// 			select {
+	// 			case <-time.After(ListenKeyRefreshInterval):
+	// 				err := ws.listenKeyPut()
+	// 				for err != nil {
+	// 					log.Error(err)
+	// 					time.Sleep(5 * time.Second)
+	// 					if strings.Contains(err.Error(), "-1125") {
+	// 						//如果是-1125错误，则Post更新
+	// 						err = ws.listenKeyPost()
+	// 					} else {
+	// 						err = ws.listenKeyPut()
+	// 					}
+	// 				}
+	// 			case <-*ws.listenKeyRefreshStopChan:
+	// 				return
+	// 			}
+	// 		}
+	// 	}()
+	// }
 
 	return ws, nil
 }
